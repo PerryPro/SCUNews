@@ -1,0 +1,46 @@
+<?php
+	for($pageNum=1;$pageNum<=4;$pageNum++)
+	{
+		$res="";
+		$url="http://jwc.scu.edu.cn:8081/queryPageGetJsonp?wzid=56C4C8887055402FE0530100007FF95C&keywords=&pageNo=".$pageNum."&pageSize=10&lmid=178";
+		$html = file_get_contents($url);
+		$temp = (json_decode($html, true));
+		$c = count($temp['documents']);
+		$res="";
+		for($i=0;$i<$c;$i++)
+		{
+			//echo $temp['documents'][$i][0]."\n";
+			if($i==0)
+			{
+				$res=$res."{\"data\": [{\n"."\"date\": \"".$temp['documents'][$i][1]."\",\n";
+				if($temp['documents'][$i][8]==1)
+				{
+					$res=$res."\"title\": \"【置顶】".$temp['documents'][$i][0]."\",\n";
+				}
+				else $res=$res."\"title\": \"".$temp['documents'][$i][0]."\",\n";
+				$res=$res."\"img\": \"http:\/\/47.94.97.113\/newsAPI\/img\/scu.jpg\",\n";
+				$res=$res."\"link\": \"http:\/\/jwc.scu.edu.cn\/detail\/".$temp['documents'][$i][2]."\/".$temp['documents'][$i][3].".htm\",\n";
+				$res=$res."\"source\": \"教务处\"\n}";
+			}
+			else
+			{
+				$res=$res.",{\n"."\"date\": \"".$temp['documents'][$i][1]."\",\n";
+				if($temp['documents'][$i][8]==1)
+				{
+					$res=$res."\"title\": \"【置顶】".$temp['documents'][$i][0]."\",\n";
+				}
+				else $res=$res."\"title\": \"".$temp['documents'][$i][0]."\",\n";
+				$res=$res."\"img\": \"http:\/\/47.94.97.113\/newsAPI\/img\/scu.jpg\",\n";
+				$res=$res."\"link\": \"http:\/\/jwc.scu.edu.cn\/detail\/".$temp['documents'][$i][2]."\/".$temp['documents'][$i][3].".htm\",\n";
+				$res=$res."\"source\": \"教务处\"\n}";
+			}
+		}
+		$res=$res."]\n}";
+		$filepath = $pageNum."\\feed.d.json";
+		$myfile = fopen($filepath, "w") or die("Unable to open file!");
+		fwrite($myfile, $res);
+		fclose($myfile);
+	//echo $res."\n";
+	}
+	
+?>
