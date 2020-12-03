@@ -4,12 +4,12 @@
 
 ## APP截图
 
-<img src='Screenshots/1.jpg'  width='30%'>
-<img src='Screenshots/2.jpg'  width='30%'>
+<img src='Screenshots/1.jpg'  align='left' width='30%'>
+<img src='Screenshots/2.jpg'   align='left' width='30%'>
 <img src='Screenshots/3.jpg'  width='30%'>
-<img src='Screenshots/4.jpg'  width='30%'>
+<img src='Screenshots/4.jpg'  align='left' width='30%'>
 <img src='Screenshots/5.jpg' align='left' width='30%'>
-<img src='Screenshots/6.jpg' align='left' width='30%'>
+<img src='Screenshots/6.jpg' width='30%'>
 <img src='Screenshots/7.jpg' align='left' width='30%'>
 <img src='Screenshots/8.jpg' align='left' width='30%'>
 <img src='Screenshots/9.jpg' align='left' width='30%'>
