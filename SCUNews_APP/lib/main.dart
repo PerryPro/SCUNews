@@ -13,20 +13,26 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share/share.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 //import 'package:flutter_android_downloader/flutter_android_downloader.dart';
+import 'keywords.dart';
 import 'page_refactor.dart';
 import 'about.dart';
 import 'favorite.dart';
+import 'focus.dart';
 
 
 Dio dio = Dio();
-const String versionNum = "102";
-const String versionCode = "V1.0.2";
+const String versionNum = "103";
+const String versionCode = "V1.0.3";
 Database db;
 bool check = false;
 String dbPath;
-
-
+FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+List<Map> focusList;
+int pushIndex = 0;
+int pushMax = 4;
+//List<Map> test;
 //Future main() async {
 //  WidgetsFlutterBinding.ensureInitialized();
 //  await FlutterDownloader.initialize(
@@ -35,10 +41,8 @@ String dbPath;
 //  await Permission.storage.request();
 //  runApp(new MyApp());
 //}
-void main() {
-  init();
-  runApp(MyApp());
-}
+
+
 
 Future init() async {
   WidgetsFlutterBinding.ensureInitialized(); //FlutterDownloader initial
@@ -48,17 +52,24 @@ Future init() async {
   );
   await Permission.storage.request();
   dbPath = await getDatabasesPath();
-  dbPath = '$dbPath/my2.db';
+  //dbPath = '$dbPath/my2.db';
+  dbPath = '$dbPath/my5.db';
   print("1xxxx $dbPath");
   check = await File("$dbPath").exists();
   await initDB();
   //await checkUpdate();
+
 }
 
 Future initDB() async {//初始化数据库
   if (check) {
     print("DB file exists");
     db = await openDatabase(dbPath);
+//    focusList = await db.rawQuery('SELECT * FROM Focus');
+    //await db.rawQuery('DELETE  FROM Pushed');
+//    test = await db.rawQuery('SELECT * FROM Focus WHERE word = "aaa"');
+//    if(test.isEmpty)print("23333333333");
+ //   print(focusList);
   } else {
     print("Create DB file $dbPath");
     db = await openDatabase(dbPath, version: 1,
@@ -66,18 +77,24 @@ Future initDB() async {//初始化数据库
           // When creating the db, create the table
           await db.execute(
               'CREATE TABLE Fav (link TEXT PRIMARY KEY, title TEXT, time TEXT,source TEXT)');
+          await db.execute(
+              'CREATE TABLE Focus (word TEXT PRIMARY KEY, userword TEXT)');
+          await db.execute(
+              'CREATE TABLE Pushed (link TEXT PRIMARY KEY, title TEXT, time TEXT,source TEXT)');
+          await db.execute(
+              'CREATE TABLE Settings (name TEXT PRIMARY KEY, value TEXT)');
         });
   }
 }
 
-Future addDBRecord(NewsClip thing) async{
+Future addDBRecord(NewsClip thing,String table) async{
   String tlink = thing.url;
   String ttitle = thing.title;
   String ttime = thing.time;
   String source = thing.source;
   await db.transaction((txn) async {
     await txn.rawInsert(
-        'INSERT INTO Fav(link, title, time, source) VALUES("$tlink", "$ttitle", "$ttime", "$source")');
+        'INSERT INTO $table(link, title, time, source) VALUES("$tlink", "$ttitle", "$ttime", "$source")');
     //print('inserted1: $id1');
   });
 }
@@ -86,6 +103,69 @@ Future delDBRecord(String link) async{
   int count = await db
       .rawDelete('DELETE FROM Fav WHERE link = "$link"');
   assert(count == 1);
+}
+
+Future showNotification(NewsClip news) async {
+  if(pushIndex < pushMax) {
+    String title = news.title;
+    List<Map> temp = await db.rawQuery(
+        'SELECT * FROM Pushed WHERE title = "$title"');
+    if (temp.isEmpty) {
+      if(pushIndex >= pushMax) return;
+      print("PIND = $pushIndex");
+      pushIndex++;
+      String time = news.time;
+      String link = news.url;
+      String source = news.source;
+      addDBRecord(news, "Pushed");
+      var android = new AndroidNotificationDetails(
+          'channel id', 'channel NAME', 'CHANNEL DESCRIPTION',
+          priority: Priority.High, importance: Importance.Max
+      );
+      var iOS = new IOSNotificationDetails();
+      var platform = new NotificationDetails(android, iOS);
+      await flutterLocalNotificationsPlugin.show(
+          pushIndex, '$time来自$source：', '$title', platform,
+          payload: '$title\n$link\n$source\n$time');
+    }
+  }
+}
+
+void needPush(List<NewsClip> list) async{//推送资讯
+  if(focusList == null){
+    focusList = await db.rawQuery('SELECT * FROM Focus');
+  }
+  for(int i=0;i<list.length;i++) {
+    bool push = false;
+    for(int j=0;j<focusList.length;j++){
+      String temp = focusList[j]["word"];
+      List<String> keywords = Keywords.map["$temp"];
+      if(temp == "personal"){
+        String userword = focusList[j]["userword"];
+        if(keywords.isEmpty){
+          keywords = userword.split(";");
+          print(keywords);
+        }
+      }
+      if(!keywords.isEmpty){
+      for(int k=0;k<keywords.length;k++){
+          if(!keywords[k].isEmpty && list[i].title.contains(keywords[k])) {
+            print(keywords[k]);
+              push = true;
+              break;
+            }
+        }}
+      if(push) {
+        showNotification(list[i]);
+        break;
+      }
+    }
+  }
+}
+
+void main() {
+  init();
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -97,6 +177,40 @@ class MyApp extends StatelessWidget {
       ScrollableTabsDemo(),
     );
   }
+}
+
+class NewsClip {//资讯对象
+  final String url;
+  final String title;
+  final String source;
+  final String image;
+  String time;
+  bool isFavorite;
+
+  NewsClip.fromJson(Map<String, dynamic> json)
+      : title = json["title"],
+        url = json["link"],
+        image = json["img"],
+        source = json["source"],
+        time = json["date"],
+        isFavorite = false;
+  
+
+  NewsClip.fromFav(String url2,String title2,String time2,String source2)
+      : title = title2,
+        url = url2,
+        image = '',
+        source = source2,
+        time = time2,
+        isFavorite = true;
+
+  NewsClip.fromNotice(String url2,String title2,String time2,String source2)
+      : title = title2,
+        url = url2,
+        image = '',
+        source = source2,
+        time = time2,
+        isFavorite = false;
 }
 
 class _Page {
@@ -118,35 +232,11 @@ class _Page {
     data.forEach((value) {
       list.add(NewsClip.fromJson(value));
     });
+    needPush(list);
     return response;
   }
 }
 
-class NewsClip {
-  final String url;
-  final String title;
-  final String time;
-  final String source;
-  final String image;
-  bool isFavorite;
-
-  NewsClip.fromJson(Map<String, dynamic> json)
-      : title = json["title"],
-        url = json["link"],
-        image = json["img"],
-        source = json["source"],
-        time = json["date"],
-        isFavorite = false;
-
-  NewsClip.fromFav(String url2,String title2,String time2,String source2)
-      : title = title2,
-        url = url2,
-        image = '',
-        source = source2,
-        time = time2,
-        isFavorite = true;
-
-}
 
 List<_Page> _allPages = <_Page>[
   _Page(text: '教务处', key: "jwc"),
@@ -170,6 +260,13 @@ class _ScrollableTabsState extends State<ScrollableTabsDemo>
     super.initState();
     _controller = TabController(vsync: this, length: _allPages.length);
     checkUpdate(false);
+    //初始化推送
+    flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
+    var android = new AndroidInitializationSettings('@mipmap/ic_launcher');
+    var iOS = new IOSInitializationSettings();
+    var initSetttings = new InitializationSettings(android, iOS);
+    flutterLocalNotificationsPlugin.initialize(initSetttings, onSelectNotification: onNoticeTap);
+
     //initDB();
   }
 
@@ -204,17 +301,11 @@ class _ScrollableTabsState extends State<ScrollableTabsDemo>
       openFileFromNotification:
       true, // click on notification to open downloaded file (for Android)
     );
-//    if (await canLaunch(
-//        "http://47.94.97.113/newsAPI/flutter/SCUNews_V$vNum.apk")) {
-//      await launch("http://47.94.97.113/newsAPI/flutter/SCUNews_V$vNum.apk");
-//    } else {
-//      throw 'Could not launch update url';
-//    }
   }
 
   Future checkUpdate(bool popUp) async {
     Response response =
-        await dio.get("http://47.94.97.113/newsAPI/flutter/version.txt");
+        await dio.get("http://47.94.97.113/newsAPI/flutter/version2020.txt");
     String value = response.toString();
     List<String> res = value.split('\n');
     //print(value);
@@ -284,6 +375,19 @@ class _ScrollableTabsState extends State<ScrollableTabsDemo>
         },
       );
     }
+  }
+
+  Future<dynamic> onNoticeTap(String payload){
+    //payload: '$title\n$link\n$source\n$time'
+    List<String> split = payload.split("\n");
+    String title = split[0];
+    String url = split[1];
+    String source = split[2];
+    String time = split[3];
+    //Navigator.pop(context);
+    Navigator.push(context, MaterialPageRoute(builder: (context) {
+      return MySc(NewsClip.fromNotice(url, title, time, source));
+    }));
   }
 
   @override
@@ -419,6 +523,25 @@ class _ScrollableTabsState extends State<ScrollableTabsDemo>
                 ),
                 ListTile(
                   leading: Icon(
+                    Icons.notifications,
+                    size: 32,
+                  ),
+                  title: Text(
+                    '推送设置',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (context) {
+                      return FocusPage();
+                    }));
+                  },
+                ),
+                Divider(
+                  height: 3,
+                ),
+                ListTile(
+                  leading: Icon(
                     Icons.info,
                     size: 32,
                   ),
@@ -502,15 +625,6 @@ class _SMySc extends State<MySc> {
     }
   }
 
-//  void downloadFile(String url,String FileName) async {
-//    String path = (await getExternalStorageDirectory()).path;
-//    int id = await FlutterAndroidDownloader.download(
-//        url,
-//        path,
-//        FileName);
-//    /// to do something
-//  }
-
   @override
   void initState() {
     //super.initState();
@@ -543,7 +657,7 @@ class _SMySc extends State<MySc> {
                     widget.content.isFavorite = ff;
                   });
                   if (ff) {
-                    addDBRecord(widget.content);
+                    addDBRecord(widget.content,"Fav");
                     _scaffoldkey.currentState.showSnackBar(
                       SnackBar(
                         content: Text('添加收藏成功！'),

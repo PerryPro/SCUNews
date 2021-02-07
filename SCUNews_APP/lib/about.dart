@@ -42,7 +42,7 @@ class AboutPage extends StatelessWidget {
 
                 alignment: Alignment.center,
                 child: Text(
-                  "我们期望以最简单的方式提升阅读校园通知&新闻的体验",
+                  "以最简单的方式提升阅读校园资讯的体验",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 20,
@@ -63,7 +63,7 @@ class AboutPage extends StatelessWidget {
               height: 15,
             ),
             Text(
-              "版权所有 PERRY @ SCU CS College",
+              "版权所有 Perry  @ 四川大学 计算机学院",
               style: TextStyle(
                 fontSize: 15,
               )
