@@ -1,7 +1,7 @@
 # 大川新闻 SCUNews
 
 大川新闻是一款对四川大学校园资讯聚合、展示、推送的平台
-本仓库包含Flutter APP和服务端爬虫
+本仓库包含Flutter APP
 
 ## APP截图
 
